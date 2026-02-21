@@ -86,7 +86,7 @@ PortfolioIQ/
 - **Format**: `ruff format backend/` — line length 100
 - **Lint**: `ruff check backend/`
 - **Type check**: `mypy backend/`
-- **Tests**: `uv run pytest` — all tests in `tests/`, use `pytest-asyncio` for async tests
+- **Tests**: `uv run pytest` — all tests in `tests/`
 
 ### Frontend
 - All components in TypeScript `.tsx`
@@ -96,6 +96,18 @@ PortfolioIQ/
 - **Dark theme** by default; CSS variables in `src/index.css`
 - Path alias `@/` maps to `src/`
 - `clsx` + `tailwind-merge` for conditional class names via `cn()` utility
+
+### Testing
+- **Run all tests**: `uv run pytest`
+- **Run subset**: `uv run pytest tests/strategies/` or `tests/routers/`
+- **Async tests**: handled automatically via `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed
+- **Test DB**: use `db_session` fixture from `conftest.py` — in-memory SQLite, no file created
+- **Mocking external services**: always mock at the service boundary using `unittest.mock.patch` / `AsyncMock`
+  - yfinance: patch `yfinance.Ticker`
+  - Claude API: patch `anthropic.AsyncAnthropic.messages.create`
+  - IBKR: use `AsyncMock` of `IBKRClient`
+- **TDD**: write the test file in the same commit as the implementation
+- **No real external calls in tests** — CI should run with no network access
 
 ### Commits
 - Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`

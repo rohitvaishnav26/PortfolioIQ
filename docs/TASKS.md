@@ -67,6 +67,27 @@ Install Python and Node dependencies.
 
 ---
 
+### TASK-002b: Test Fixtures Setup
+
+Create the shared pytest fixture file that all subsequent tests depend on.
+
+**File to create:** `tests/conftest.py`
+
+Fixtures:
+- `async_engine` — in-memory SQLite engine (`sqlite+aiosqlite:///:memory:`) with `create_all` applied to `Base.metadata`
+- `db_session` — async `AsyncSession` scoped to each test, with rollback on teardown
+- `test_client` — FastAPI `AsyncClient` with `get_session` dependency overridden to use `db_session`
+- `sample_position` — inserts a `Position` row for symbol `"TEST"` into the test DB and returns it
+- `sample_fundamentals` — inserts a `Fundamentals` row for symbol `"TEST"` into the test DB and returns it
+- `mock_yfinance_ticker` — `unittest.mock.patch` on `yfinance.Ticker` returning a `MagicMock` with canned `.history()` DataFrame and `.info` dict
+- `mock_claude_response` — `AsyncMock` returning a valid `SmartRecommendation` JSON structure
+
+**Definition of done:**
+- `uv run pytest tests/ --collect-only` runs without errors and reports fixtures available
+- `uv run pytest tests/test_models.py` passes (once TASK-003 is done)
+
+---
+
 ### TASK-003: Database Models
 
 Implement SQLAlchemy ORM models for all tables. One file per model.
@@ -87,7 +108,9 @@ Implement SQLAlchemy ORM models for all tables. One file per model.
 
 Use SQLAlchemy 2.0 mapped_column syntax with type annotations.
 
-**Definition of done:** `uv run python -c "from backend.models import *; print('OK')"` succeeds.
+**Definition of done:**
+- `uv run python -c "from backend.models import *; print('OK')"` succeeds
+- `tests/test_models.py`: import all models; create + query each in test DB using `db_session` fixture — all pass
 
 ---
 
@@ -159,6 +182,7 @@ settings = Settings()
 **Definition of done:**
 - `uv run uvicorn backend.main:app --reload --port 8000` starts without errors
 - `curl http://localhost:8000/api/health` returns `{"status":"ok","version":"0.1.0"}`
+- `tests/routers/test_health.py`: `GET /api/health` via `test_client` returns 200 + expected JSON — passes
 
 ---
 
@@ -268,6 +292,7 @@ Three public functions:
 **Definition of done:**
 - First call fetches from yfinance (takes ~1-2s)
 - Second call within TTL returns immediately from cache
+- `tests/services/test_market_data.py`: cache hit returns DB row; cache miss calls `mock_yfinance_ticker`; TTL expiry triggers re-fetch — all pass
 
 ---
 
@@ -284,7 +309,9 @@ Endpoints:
 
 Include Pydantic response schemas in the router file.
 
-**Definition of done:** `GET /api/portfolio/positions` returns a non-empty JSON array matching the positions in IBKR.
+**Definition of done:**
+- `GET /api/portfolio/positions` returns a non-empty JSON array matching the positions in IBKR
+- `tests/routers/test_portfolio.py`: `GET /api/portfolio/positions` with `sample_position` seeded in test DB returns correct JSON — passes
 
 ---
 
@@ -297,7 +324,9 @@ Endpoints:
 - `GET /api/market/history/{symbol}` — OHLCV; query params: `period` (default "1y"), `interval` (default "1d")
 - `GET /api/market/fundamentals/{symbol}` — all fundamental fields
 
-**Definition of done:** `GET /api/market/quote/AAPL` returns current AAPL price.
+**Definition of done:**
+- `GET /api/market/quote/AAPL` returns current AAPL price
+- `tests/routers/test_market.py`: `GET /api/market/quote/{sym}` with `mock_yfinance_ticker` returns correct quote JSON — passes
 
 ---
 
@@ -354,19 +383,7 @@ Implement full momentum logic from `docs/STRATEGIES.md`:
 - Apply BUY/SELL/HOLD rules and confidence scoring
 
 **Definition of done:**
-```python
-# tests/test_momentum.py
-import pandas as pd
-from backend.strategies.momentum import MomentumStrategy
-
-async def test_momentum_buy_signal():
-    # Create mock OHLCV with uptrending price + RSI in range
-    strategy = MomentumStrategy()
-    signal = await strategy.compute("TEST", mock_uptrend_df, {}, None, {})
-    assert signal.signal in ("BUY", "HOLD", "SELL")
-    assert 0 <= signal.confidence <= 100
-```
-All tests pass.
+- `tests/strategies/test_momentum.py`: BUY signal with uptrend OHLCV data; SELL with overbought RSI; HOLD for neutral conditions — all pass
 
 ---
 
@@ -379,7 +396,8 @@ Implement value logic from `docs/STRATEGIES.md`:
 - Read sector median P/E and EV/EBITDA from fundamentals dict (populated by market data service)
 - Apply BUY/SELL/HOLD rules and confidence scoring
 
-**Definition of done:** Unit test with mock fundamentals returns a valid `StrategySignal`.
+**Definition of done:**
+- `tests/strategies/test_value.py`: BUY when P/E < 0.75× median + FCF yield > 5%; SELL when P/E > 2× median — all pass
 
 ---
 
@@ -391,7 +409,8 @@ Implement growth logic from `docs/STRATEGIES.md`:
 - Revenue CAGR, EPS CAGR, gross margin, PEG ratio from fundamentals
 - BUY/SELL/HOLD rules and confidence scoring
 
-**Definition of done:** Unit test passes.
+**Definition of done:**
+- `tests/strategies/test_growth.py`: BUY on high CAGR + low PEG; SELL on margin compression — all pass
 
 ---
 
@@ -404,7 +423,8 @@ Implement long-term logic from `docs/STRATEGIES.md`:
 - BUY only on quality + valuation meeting thresholds
 - SELL requires sustained fundamental deterioration (uses historical fundamentals if available, otherwise conservative)
 
-**Definition of done:** Unit test: passing fundamentals for a solid company returns HOLD; badly deteriorated fundamentals return SELL.
+**Definition of done:**
+- `tests/strategies/test_long_term.py`: HOLD for solid company fundamentals; SELL for sustained fundamental deterioration — all pass
 
 ---
 
@@ -419,7 +439,8 @@ Implement long-term logic from `docs/STRATEGIES.md`:
 
 Preset profiles defined in `backend/strategies/hybrid.py` as constants.
 
-**Definition of done:** "Growth Long-Term" profile with holding_bias="long" returns HOLD (not SELL) when only Momentum says SELL.
+**Definition of done:**
+- `tests/strategies/test_hybrid.py`: Growth+LT profile with `holding_bias="long"` suppresses Momentum SELL and returns HOLD — passes
 
 ---
 
@@ -470,7 +491,9 @@ Seed default preferences on first-run (in FastAPI lifespan or first GET).
 
 Rate limit check: enforce `RESEARCH_DAILY_CALL_LIMIT` across research + recommendation calls.
 
-**Definition of done:** `POST /api/recommendations/refresh` runs and populates the recommendations table with AI-generated actions and rationale.
+**Definition of done:**
+- `POST /api/recommendations/refresh` runs and populates the recommendations table with AI-generated actions and rationale
+- `tests/services/test_recommendation_engine.py`: `mock_claude_response` returns valid JSON; Pydantic validation passes; daily limit check enforced — all pass
 
 ---
 
@@ -486,7 +509,10 @@ Rate limit check: enforce `RESEARCH_DAILY_CALL_LIMIT` across research + recommen
 - `GET /api/recommendations/{symbol}` — recommendation for one symbol
 - `POST /api/recommendations/refresh` — trigger recommendation engine
 
-**Definition of done:** `GET /api/recommendations` returns an array with at least one item containing `action`, `urgency`, `rationale`, `suggested_size_pct`.
+**Definition of done:**
+- `GET /api/recommendations` returns an array with at least one item containing `action`, `urgency`, `rationale`, `suggested_size_pct`
+- `tests/routers/test_signals.py`: `GET /api/signals` returns seeded signals; `POST /api/signals/refresh` triggers engine — passes
+- `tests/routers/test_recommendations.py`: `GET /api/recommendations` returns seeded recommendations — passes
 
 ---
 

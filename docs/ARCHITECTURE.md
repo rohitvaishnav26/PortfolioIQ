@@ -470,4 +470,65 @@ Run: `uv run python -m backend.mcp.research_server`
 | Strategy signals | Expire after next refresh or 24h | SQLite `signals` |
 | AI recommendations | Expire after preferences change or 4h | SQLite `recommendations` |
 
+---
+
+## Testing Strategy
+
+### Approach
+TDD: tests are written alongside each implementation task and committed together.
+
+### Test Types
+| Type | Scope | Tools |
+|------|-------|-------|
+| Unit | Strategies, services, utilities | pytest-asyncio, mock/patch |
+| Integration | FastAPI endpoints + DB | FastAPI TestClient, in-memory SQLite |
+| Smoke | App start, health endpoint | pytest |
+
+### Directory Structure
+```
+tests/
+├── conftest.py              # shared fixtures (DB session, mock clients)
+├── test_models.py           # model import + basic CRUD smoke tests
+├── strategies/
+│   ├── test_momentum.py
+│   ├── test_value.py
+│   ├── test_growth.py
+│   ├── test_long_term.py
+│   ├── test_quality.py
+│   ├── test_dividend_growth.py
+│   ├── test_mean_reversion.py
+│   └── test_hybrid.py
+├── routers/
+│   ├── test_portfolio.py
+│   ├── test_market.py
+│   ├── test_signals.py
+│   ├── test_recommendations.py
+│   └── test_preferences.py
+└── services/
+    ├── test_market_data.py
+    └── test_recommendation_engine.py
+```
+
+### Key Fixtures (`tests/conftest.py`)
+- `db_session` — async SQLAlchemy session using in-memory SQLite (`sqlite+aiosqlite:///:memory:`)
+- `test_client` — FastAPI `AsyncClient` with test DB injected via dependency override
+- `mock_ibkr` — `AsyncMock` of `IBKRClient`
+- `mock_yfinance` — `unittest.mock.patch` on `yfinance.Ticker` returning fixture DataFrames/dicts
+- `mock_claude` — `AsyncMock` of `AsyncAnthropic.messages.create` returning fixture JSON
+
+### Run Commands
+```bash
+uv run pytest                      # all tests
+uv run pytest tests/strategies/    # strategies only
+uv run pytest tests/routers/       # API integration tests
+uv run pytest -v --tb=short        # verbose with short tracebacks
+uv run pytest --co -q              # list tests without running
+```
+
+### Mocking Conventions
+- Use `unittest.mock.patch` and `AsyncMock` for external I/O (IBKR, yfinance, Claude API)
+- Never call real external APIs in tests — always mock at the service boundary
+- Use `pytest-httpx` for mocking httpx-based calls if needed
+- Strategy unit tests provide synthetic OHLCV DataFrames and fundamentals dicts directly
+
 Market hours detection: 9:30 AM – 4:00 PM ET, Monday–Friday, excluding US market holidays.
