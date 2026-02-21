@@ -1,5 +1,17 @@
 # PortfolioIQ — Claude Code Project Context
 
+## Behavioral Rules (Always Enforced)
+
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless they're absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (*.md) or README files unless explicitly requested
+- NEVER save working files, text/mds, or tests to the root folder
+- ALWAYS read a file before editing it
+- NEVER commit secrets, credentials, or .env files
+- Whenever on the main branch and edits or commits are requested by the user or manually made by the user, ensure that a new branch is ALWAYS created (using appropriate naming) from main and changes are made on that
+- Commits and push should ALWAYS be on non-main branches. Only PRs can be on main
+
 ## Project Overview
 
 PortfolioIQ is a local Investment Portfolio Monitor & Recommendation Engine.
@@ -120,6 +132,6 @@ The Vite dev server (port 5173) proxies all `/api` requests to `localhost:8000`.
 - **Quote cache**: 60s TTL during market hours, 15 min after hours; served from SQLite `market_data` table
 - **Recommendation Engine**: powered by Claude (`claude-sonnet-4-5`) — synthesizes raw strategy signals + portfolio context + user preferences → generates `SmartRecommendation` with action (BUY/ADD/TRIM/SELL/HOLD), sizing, and rationale
 - **Strategy hierarchy**: raw signals (momentum, value, growth, etc.) → hybrid profiles (user-defined weighted blends) → AI recommendation engine
-- See `docs/ARCHITECTURE.md` for full system design and DB schema
-- See `docs/STRATEGIES.md` for strategy logic and confidence scoring formulas
-- See `docs/TASKS.md` for the Iteration 1 task breakdown
+- ALWAYS refer to `docs/ARCHITECTURE.md` for full system design and DB schema
+- ALWAYS refer to  `docs/STRATEGIES.md` for strategy logic and confidence scoring formulas
+- ALWAYS refer to  `docs/TASKS.md` for the Iteration 1 task breakdown
