@@ -1,6 +1,6 @@
 # PortfolioIQ — Product Status Brief
 **Audience:** Product Manager / Product Owner
-**Last updated:** February 2026
+**Last updated:** February 21, 2026 (post TASK-005)
 
 ---
 
@@ -50,8 +50,10 @@ All data updates automatically every 5 minutes via your live IBKR connection.
 | **Dependencies installed** — Python packages (FastAPI, SQLAlchemy, IBKR library, AI SDK, etc.) and frontend packages (React, charts, UI components) | Without this, nothing runs. The specific choices (pure-Python data libraries, local SQLite) ensure the app works on Windows without complex C-compiler setup. |
 | **Test infrastructure** — shared test fixtures that mock external services | Means every feature built from here can be tested without a live IBKR connection or real API calls. Reduces risk of regressions. |
 | **Database models** — all 12 database tables defined | The full data structure of the app now exists. Every piece of data the app needs — positions, transactions, signals, recommendations, preferences — has a defined home. This is the schema the whole product runs on. |
+| **Database migrations + app config** — Alembic wired to all 12 models; `portfolioiq.db` created on disk with all tables | The actual database file now exists and is versioned. Any future schema change is a controlled migration, not a manual SQL script. The app config layer (`backend/config.py`) is also in place, reading all settings from `.env`. |
+| **FastAPI skeleton + health endpoint** — backend server starts, responds to requests, CORS enabled for the frontend | The backend is now a running service. A developer can start it with one command and hit `GET /api/health` to confirm it's alive. All Layer 2 data endpoints will build on this foundation. |
 
-**12 out of 27 planned work items are complete for this iteration.**
+**All 6 Layer 1 infrastructure tasks are complete. Layer 2 (data sync + API) is next.**
 
 ---
 
@@ -69,11 +71,11 @@ The following are fully *designed and documented* but not yet coded:
 
 ## What's Being Built Next (In Order)
 
-### Step 4 — Database Migrations (TASK-004)
-Sets up Alembic so the SQLite database can be created and versioned. After this: the actual database file exists on disk and all tables are created automatically when the app starts.
+### ~~Step 4 — Database Migrations (TASK-004)~~ ✅ Complete
+Alembic is set up and the initial migration has been applied. `portfolioiq.db` exists on disk with all 12 tables. All future schema changes will be versioned migrations.
 
-### Step 5 — FastAPI Skeleton + Health Check (TASK-005)
-The backend server starts and responds to requests. After this: a developer can run the server and hit `GET /api/health` and get a response. First "it's alive" moment.
+### ~~Step 5 — FastAPI Skeleton + Health Check (TASK-005)~~ ✅ Complete
+`backend/database.py` and `backend/main.py` are implemented. The server starts with `uv run uvicorn backend.main:app --reload --port 8000` and `GET /api/health` returns `{"status":"ok","version":"0.1.0"}`. 13/13 tests pass.
 
 ### Steps 6–13 — IBKR Sync + Market Data + API (Layer 2)
 The app connects to IBKR, pulls positions and transactions, fetches live market data and fundamentals from Yahoo Finance, and exposes all of it via REST endpoints. **After this: a developer can query real portfolio data via API.**
@@ -90,7 +92,7 @@ The React dashboard is built out — all 5 screens, charts, tables, recommendati
 
 | Milestone | After Task | What You Can Do |
 |-----------|-----------|-----------------|
-| **Backend health check** | TASK-005 | Run the server; confirm it starts and responds |
+| **Backend health check** | TASK-005 ✅ | Run the server; confirm it starts and responds |
 | **Real data in API** | TASK-013 | Query your actual IBKR positions via API or Swagger UI — no frontend yet |
 | **App shell loads** | TASK-021 | Browser opens; dark-themed shell with navigation — placeholder content |
 | **First useful dashboard** | TASK-024 | Full dashboard with real holdings, live prices, charts — **first real product experience** |

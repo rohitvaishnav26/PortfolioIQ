@@ -1,7 +1,7 @@
 # PortfolioIQ — Architecture & Implementation Status
 **Audience:** Architect / Developer
-**Last updated:** February 2026
-**Branch:** `feat/task-003-models` (ready for PR → `main`)
+**Last updated:** February 21, 2026 (post TASK-005)
+**Branch:** `feat/task-005-fastapi-skeleton` (ready for PR → `main`)
 
 ---
 
@@ -16,9 +16,17 @@ PortfolioIQ is a local-only, single-user app. A FastAPI backend (port 8000) serv
 ```
 PortfolioIQ/
 ├── pyproject.toml              # uv-managed Python deps + ruff/mypy/pytest config
+├── alembic.ini                 # ✅ COMPLETE — sqlalchemy.url = sqlite:///./portfolioiq.db
 ├── .env.example                # all env var keys with defaults
+├── alembic/                    # ✅ COMPLETE — Alembic migration environment
+│   ├── env.py                  # imports Base + settings; uses sync SQLite URL
+│   ├── script.py.mako          # migration file template
+│   ├── README
+│   └── versions/
+│       └── fd301443d352_initial.py  # initial migration — 11 op.create_table() calls
 ├── backend/
 │   ├── __init__.py
+│   ├── config.py               # ✅ COMPLETE — pydantic-settings Settings class
 │   ├── models/                 # ✅ COMPLETE — 12 SQLAlchemy ORM models
 │   │   ├── base.py             # DeclarativeBase
 │   │   ├── position.py
@@ -33,19 +41,24 @@ PortfolioIQ/
 │   │   ├── recommendation.py
 │   │   ├── watchlist.py
 │   │   └── __init__.py         # re-exports all 12 for Alembic autodiscovery
-│   ├── services/               # ⬜ not yet implemented
-│   ├── routers/                # ⬜ not yet implemented
+│   ├── database.py             # ✅ COMPLETE — async engine + get_session() dependency
+│   ├── main.py                 # ✅ COMPLETE — FastAPI app + CORS + /api/health
+│   ├── services/               # ⬜ TASK-006+ — not yet implemented
+│   ├── routers/                # ⬜ TASK-012+ — not yet implemented
 │   ├── strategies/             # ⬜ not yet implemented
 │   └── mcp/                    # ⬜ not yet implemented
 ├── tests/
 │   ├── conftest.py             # ✅ COMPLETE — shared async fixtures
-│   └── test_models.py          # ✅ COMPLETE — 12/12 CRUD tests pass
+│   ├── test_models.py          # ✅ COMPLETE — 12/12 CRUD tests pass
+│   └── routers/
+│       └── test_health.py      # ✅ COMPLETE — GET /api/health → 200
 ├── docs/
 │   ├── ARCHITECTURE.md         # full system design + DB schema + API + MCP design
 │   ├── TASKS.md                # Iteration 1 task breakdown (TASK-001 to TASK-027)
 │   ├── STRATEGIES.md           # all 7 strategy definitions + confidence formulas
 │   ├── PRODUCT.md              # feature spec P0/P1/P2
-│   └── INTEGRATIONS.md         # IBKR, yfinance, Claude API, MCP setup guide
+│   ├── INTEGRATIONS.md         # IBKR, yfinance, Claude API, MCP setup guide
+│   └── DATABASE.md             # ✅ NEW — SQLite connection + schema + query reference
 └── frontend/                   # React app (scaffolded, not yet implemented)
     ├── package.json
     ├── vite.config.ts          # @tailwindcss/vite plugin + /api proxy to :8000
@@ -64,11 +77,11 @@ PortfolioIQ/
 | TASK-002: `uv sync` + `npm install` | ✅ Done | `.venv/` and `frontend/node_modules/` present |
 | TASK-002b: `tests/conftest.py` fixtures | ✅ Done | 7 fixtures; all usable without FastAPI or IBKR |
 | TASK-003: SQLAlchemy ORM models | ✅ Done | 12 models; 12/12 CRUD tests pass |
-| TASK-004: Alembic init + initial migration | ⬜ Next | No `alembic/` dir yet |
-| TASK-005: `config.py`, `database.py`, `main.py` | ⬜ Pending | No application files yet |
+| TASK-004: Alembic init + initial migration | ✅ Done | `portfolioiq.db` created; all 12 tables verified; `alembic current` = head |
+| TASK-005: `database.py`, `main.py` | ✅ Done | `backend/database.py` (async engine + `get_session`); `backend/main.py` (FastAPI + CORS + `/api/health`); 13/13 tests pass |
 
 ### Layer 2 — Data Sync + API (TASK-006 to TASK-013)
-All pending. Depends on TASK-004 and TASK-005.
+All pending. Layer 1 is now fully complete — Layer 2 can begin.
 
 ### Layer 3 — Intelligence (TASK-014 to TASK-018)
 All pending. Depends on Layer 2.
@@ -218,60 +231,26 @@ testpaths = ["tests"]
 
 ---
 
-## What TASK-004 Needs to Do (Next)
+## What TASK-004 Delivered
 
-1. `alembic init alembic` — creates `alembic/` directory + `alembic.ini`
-2. Patch `alembic/env.py`:
-   - Import `Base` from `backend.models`
-   - Import `DATABASE_URL` from `backend.config` (Settings)
-   - Set `target_metadata = Base.metadata`
-   - Use async engine pattern (`run_async_context`)
-3. `alembic revision --autogenerate -m "initial"` — generates migration from models
-4. `alembic upgrade head` — applies migration; `portfolioiq.db` created with all 12 tables
-5. DoD: `sqlite3 portfolioiq.db ".tables"` lists all 12 table names
+- `backend/config.py` — full `Settings` class (all 16 fields) via `pydantic-settings`, reads from `.env`
+- `alembic.ini` — `sqlalchemy.url = sqlite:///./portfolioiq.db`
+- `alembic/env.py` — imports `Base` + `settings`; strips `+aiosqlite` for sync migrations
+- `alembic/versions/fd301443d352_initial.py` — 11 `op.create_table()` calls (autogenerated)
+- `portfolioiq.db` — created on disk (gitignored); `alembic current` reports `fd301443d352 (head)`
+
+Verification: `PASS` — all 12 tables present (`positions`, `transactions`, `account_summary`, `market_data`, `fundamentals`, `signals`, `user_preferences`, `recommendations`, `watchlist`, `research_cache`, `sync_log`, `alembic_version`).
 
 ---
 
-## What TASK-005 Needs to Do (After That)
+## What TASK-005 Delivered
 
-Three files:
+- `backend/database.py` — `create_async_engine` bound to `settings.database_url`; `async_sessionmaker`; `get_session()` async generator for FastAPI dependency injection
+- `backend/main.py` — `FastAPI(title="PortfolioIQ", lifespan=lifespan)` with CORS allowing `http://localhost:5173`; `GET /api/health` returns `{"status":"ok","version":"0.1.0"}`; lifespan placeholder ready for APScheduler wiring in TASK-010
+- `tests/routers/test_health.py` — single test via `test_client` fixture; 13/13 total tests pass
+- `docs/DATABASE.md` — SQLite connection reference (CLI, `sqlite3`, SQLAlchemy async, GUI tools), full schema reference for all 11 tables, JSON column patterns, common query cheat sheet, Alembic commands
 
-**`backend/config.py`** — `pydantic-settings` `Settings` class reading from `.env`:
-```python
-class Settings(BaseSettings):
-    database_url: str = "sqlite+aiosqlite:///./portfolioiq.db"
-    ibkr_host: str = "127.0.0.1"
-    ibkr_tws_port: int = 4002
-    anthropic_api_key: str = ""
-    # ... etc.
-```
-
-**`backend/database.py`** — async engine + session factory + FastAPI dependency:
-```python
-engine = create_async_engine(settings.database_url)
-async_session = async_sessionmaker(engine, expire_on_commit=False)
-
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session() as session:
-        yield session
-```
-
-**`backend/main.py`** — FastAPI app with CORS, lifespan, and `/api/health`:
-```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # start APScheduler
-    yield
-    # stop APScheduler
-
-app = FastAPI(lifespan=lifespan)
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "version": "0.1.0"}
-```
-
-DoD: `uv run uvicorn backend.main:app --reload --port 8000` starts; `GET /api/health` returns 200.
+Verification: `PASS` — `uv run pytest` → 13 passed.
 
 ---
 
@@ -279,9 +258,9 @@ DoD: `uv run uvicorn backend.main:app --reload --port 8000` starts; `GET /api/he
 
 | After | Verify With |
 |-------|------------|
-| TASK-003 (now) | `uv run pytest tests/test_models.py -v` → 12 passed |
-| TASK-004 | `sqlite3 portfolioiq.db ".tables"` → 12 table names |
-| TASK-005 | `curl http://localhost:8000/api/health` → `{"status":"ok"}` |
+| TASK-003 ✅ | `uv run pytest tests/test_models.py -v` → 12 passed |
+| TASK-004 ✅ | `sqlite3 portfolioiq.db ".tables"` → 12 table names — **VERIFIED** |
+| TASK-005 ✅ | `curl http://localhost:8000/api/health` → `{"status":"ok","version":"0.1.0"}` — **VERIFIED** |
 | TASK-013 | `http://localhost:8000/docs` → Swagger UI with real IBKR data |
 | TASK-018 | `GET /api/recommendations` → AI-generated SmartRecommendations |
 | TASK-024 | Browser at `localhost:5173` → dashboard with live portfolio |
