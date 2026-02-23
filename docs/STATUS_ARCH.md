@@ -1,7 +1,7 @@
 # PortfolioIQ — Architecture & Implementation Status
 **Audience:** Architect / Developer
-**Last updated:** February 21, 2026 (post TASK-005)
-**Branch:** `feat/task-005-fastapi-skeleton` (ready for PR → `main`)
+**Last updated:** February 21, 2026 (post TASK-006)
+**Branch:** `feat/task-006-ibkr-client` (ready for PR → `main`)
 
 ---
 
@@ -43,15 +43,18 @@ PortfolioIQ/
 │   │   └── __init__.py         # re-exports all 12 for Alembic autodiscovery
 │   ├── database.py             # ✅ COMPLETE — async engine + get_session() dependency
 │   ├── main.py                 # ✅ COMPLETE — FastAPI app + CORS + /api/health
-│   ├── services/               # ⬜ TASK-006+ — not yet implemented
+│   ├── services/
+│   │   └── ibkr_client.py      # ✅ COMPLETE — IBKRClient with connect/disconnect/retry
 │   ├── routers/                # ⬜ TASK-012+ — not yet implemented
 │   ├── strategies/             # ⬜ not yet implemented
 │   └── mcp/                    # ⬜ not yet implemented
 ├── tests/
 │   ├── conftest.py             # ✅ COMPLETE — shared async fixtures
 │   ├── test_models.py          # ✅ COMPLETE — 12/12 CRUD tests pass
-│   └── routers/
-│       └── test_health.py      # ✅ COMPLETE — GET /api/health → 200
+│   ├── routers/
+│   │   └── test_health.py      # ✅ COMPLETE — GET /api/health → 200
+│   └── services/
+│       └── test_ibkr_client.py # ✅ COMPLETE — 7 tests; connect/disconnect/get_ib/error cases
 ├── docs/
 │   ├── ARCHITECTURE.md         # full system design + DB schema + API + MCP design
 │   ├── TASKS.md                # Iteration 1 task breakdown (TASK-001 to TASK-027)
@@ -81,7 +84,17 @@ PortfolioIQ/
 | TASK-005: `database.py`, `main.py` | ✅ Done | `backend/database.py` (async engine + `get_session`); `backend/main.py` (FastAPI + CORS + `/api/health`); 13/13 tests pass |
 
 ### Layer 2 — Data Sync + API (TASK-006 to TASK-013)
-All pending. Layer 1 is now fully complete — Layer 2 can begin.
+
+| Task | Status | Artifact |
+|------|--------|---------|
+| TASK-006: IBKR connection manager | ✅ Done | `backend/services/ibkr_client.py` — `IBKRClient` with retry + reconnect; 7/7 tests pass |
+| TASK-007: Position sync service | ⬜ Next | |
+| TASK-008: Transaction sync service | ⬜ Pending | |
+| TASK-009: Account balance sync | ⬜ Pending | |
+| TASK-010: APScheduler setup | ⬜ Pending | |
+| TASK-011: yfinance market data service | ⬜ Pending | |
+| TASK-012: Portfolio API router | ⬜ Pending | |
+| TASK-013: Market data API router | ⬜ Pending | |
 
 ### Layer 3 — Intelligence (TASK-014 to TASK-018)
 All pending. Depends on Layer 2.
@@ -251,6 +264,20 @@ Verification: `PASS` — all 12 tables present (`positions`, `transactions`, `ac
 - `docs/DATABASE.md` — SQLite connection reference (CLI, `sqlite3`, SQLAlchemy async, GUI tools), full schema reference for all 11 tables, JSON column patterns, common query cheat sheet, Alembic commands
 
 Verification: `PASS` — `uv run pytest` → 13 passed.
+
+---
+
+## What TASK-006 Delivered
+
+- `backend/services/ibkr_client.py` — `IBKRClient` class wrapping `ib_insync.IB`
+  - `connect()` — idempotent; retries up to 5× with exponential backoff (2s min, 60s max) via tenacity
+  - `disconnect()` — idempotent; no-op if already disconnected
+  - `is_connected` property — delegates to `ib.isConnected()`
+  - `get_ib()` — returns live `IB` instance or raises `IBKRConnectionError`
+  - `_on_disconnected()` — registered on `ib.disconnectedEvent`; logs warning; reconnect deferred to next sync cycle
+- `tests/services/test_ibkr_client.py` — 7 tests covering all public methods and edge cases
+
+Verification: `PASS` — `uv run pytest` → 20 passed.
 
 ---
 

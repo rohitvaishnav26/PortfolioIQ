@@ -1,6 +1,6 @@
 # PortfolioIQ — Product Status Brief
 **Audience:** Product Manager / Product Owner
-**Last updated:** February 21, 2026 (post TASK-005)
+**Last updated:** February 21, 2026 (post TASK-006)
 
 ---
 
@@ -52,8 +52,9 @@ All data updates automatically every 5 minutes via your live IBKR connection.
 | **Database models** — all 12 database tables defined | The full data structure of the app now exists. Every piece of data the app needs — positions, transactions, signals, recommendations, preferences — has a defined home. This is the schema the whole product runs on. |
 | **Database migrations + app config** — Alembic wired to all 12 models; `portfolioiq.db` created on disk with all tables | The actual database file now exists and is versioned. Any future schema change is a controlled migration, not a manual SQL script. The app config layer (`backend/config.py`) is also in place, reading all settings from `.env`. |
 | **FastAPI skeleton + health endpoint** — backend server starts, responds to requests, CORS enabled for the frontend | The backend is now a running service. A developer can start it with one command and hit `GET /api/health` to confirm it's alive. All Layer 2 data endpoints will build on this foundation. |
+| **IBKR connection manager** — `IBKRClient` class handles connect, disconnect, and retry logic | The app can now establish and recover from IBKR connections. All sync services (positions, transactions, balances) will use this as their gateway to IBKR data. |
 
-**All 6 Layer 1 infrastructure tasks are complete. Layer 2 (data sync + API) is next.**
+**Layer 1 complete. Layer 2 is underway — 1 of 8 tasks done.**
 
 ---
 
@@ -79,6 +80,10 @@ Alembic is set up and the initial migration has been applied. `portfolioiq.db` e
 
 ### Steps 6–13 — IBKR Sync + Market Data + API (Layer 2)
 The app connects to IBKR, pulls positions and transactions, fetches live market data and fundamentals from Yahoo Finance, and exposes all of it via REST endpoints. **After this: a developer can query real portfolio data via API.**
+
+- ~~TASK-006: IBKR Connection Manager~~ ✅ Complete
+- TASK-007: Position Sync — next up
+- TASK-008 through TASK-013: pending
 
 ### Steps 14–18 — Strategy Engine + AI Recommendations (Layer 3)
 The 7 strategies run against real portfolio data, generate signals, and the Claude-powered recommendation engine synthesises them into actionable advice. **After this: the intelligence layer is live.**
